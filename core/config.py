@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # Strava
     STRAVA_CLIENT_ID: str
     STRAVA_CLIENT_SECRET: str
-    STRAVA_REDIRECT_URI: str = "http://localhost:8000/strava/auth"
+    STRAVA_REDIRECT_URI: str = "https://unubiquitous-porky-tesha.ngrok-free.dev/strava/auth"
     
     # Webhook
     # The token you define for Strava to verify the webhook
