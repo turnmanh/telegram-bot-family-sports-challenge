@@ -1,0 +1,27 @@
+[project]
+name = "sport-challenge-bot"
+version = "0.1.0"
+description = "Telegram Sport Challenge Bot with Strava Integration"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "python-telegram-bot",
+    "stravalib",
+    "supabase",
+    "pydantic-settings"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "core", "db"]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest",
+    "httpx"
+]

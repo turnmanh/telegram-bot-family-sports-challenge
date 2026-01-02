@@ -38,3 +38,4 @@ env/
 
 # Seed queries
 db/seed_queries/*.sql
+db/migrations/*.sql
