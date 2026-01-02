@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     
     # Webhook
     # The token you define for Strava to verify the webhook
-    WEBHOOK_VERIFY_TOKEN: str | None = None
+    WEBHOOK_VERIFY_TOKEN: str = "STRAVA_DEFAULT_TOKEN"
     
     # Sync Configuration
     # Format: YYYY-MM-DD

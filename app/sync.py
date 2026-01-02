@@ -1,5 +1,4 @@
 from datetime import datetime
-from stravalib.client import Client
 from core.config import settings
 from db.supabase import supabase
 from core.scoring import calculate_weighted_distance
@@ -16,7 +15,8 @@ async def sync_user_activities(user_data: dict):
         return
 
     logger.info(f"Starting sync for user {user_data['telegram_id']}...")
-    client = Client(access_token=user_data['access_token'])
+    from app.strava_utils import get_strava_client
+    client = get_strava_client(user_data)
     
     start_date = datetime.strptime(settings.STRAVA_SYNC_START_DATE, "%Y-%m-%d")
     end_date = None

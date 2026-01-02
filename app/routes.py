@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Request
 from stravalib.client import Client
 from core.config import settings
 from db.supabase import supabase
@@ -6,8 +6,33 @@ from app.sync import sync_user_activities
 
 router = APIRouter()
 
+def ensure_strava_webhook(callback_url: str):
+    """
+    Ensures that the Strava webhook subscription exists for this app.
+    """
+    client = Client()
+    try:
+        subscriptions = client.list_subscriptions(
+            client_id=settings.STRAVA_CLIENT_ID,
+            client_secret=settings.STRAVA_CLIENT_SECRET
+        )
+        
+        # Check if our callback_url is already subscribed
+        if any(sub.callback_url == callback_url for sub in subscriptions):
+            return
+            
+        # If not, create it
+        client.create_subscription(
+            client_id=settings.STRAVA_CLIENT_ID,
+            client_secret=settings.STRAVA_CLIENT_SECRET,
+            callback_url=callback_url,
+            verify_token=settings.WEBHOOK_VERIFY_TOKEN
+        )
+    except Exception as e:
+        print(f"Failed to setup Strava webhook: {e}")
+
 @router.get("/strava/auth")
-async def strava_auth(code: str, state: str, background_tasks: BackgroundTasks):
+async def strava_auth(request: Request, code: str, state: str, background_tasks: BackgroundTasks):
     """
     Callback endpoint for Strava OAuth.
     Exchanges code for token and saves it with Telegram ID (state).
@@ -36,6 +61,12 @@ async def strava_auth(code: str, state: str, background_tasks: BackgroundTasks):
         # Save to Supabase (upsert)
         # Using execute() to run the query
         data, count = supabase.table("users").upsert(user_data).execute()
+        
+        # Ensure webhook is setup
+        base_url = str(request.base_url).rstrip('/')
+        # If we are behind a proxy, base_url might be wrong, but often FastAPI handles it if configured
+        callback_url = f"{base_url}/strava/webhook"
+        background_tasks.add_task(ensure_strava_webhook, callback_url)
         
         # Trigger background sync
         background_tasks.add_task(sync_user_activities, user_data)
@@ -87,27 +118,12 @@ async def strava_webhook_event(event: WebhookEvent):
         telegram_id = user["telegram_id"]
         
         # 2. Fetch Activity Details (Need valid token)
-        # TODO: Implement token refresh logic if expired (omitted for brevity, assume valid or simple refresh)
-        client = Client(access_token=user["access_token"])
-        
-        # Check expiry
-        if time.time() > user["expires_at"]:
-            try:
-                refresh_response = client.refresh_access_token(
-                    client_id=settings.STRAVA_CLIENT_ID,
-                    client_secret=settings.STRAVA_CLIENT_SECRET,
-                    refresh_token=user["refresh_token"]
-                )
-                # Update DB
-                supabase.table("users").update({
-                    "access_token": refresh_response["access_token"],
-                    "refresh_token": refresh_response["refresh_token"],
-                    "expires_at": refresh_response["expires_at"]
-                }).eq("telegram_id", telegram_id).execute()
-                client.access_token = refresh_response["access_token"]
-            except Exception as e:
-                print(f"Failed to refresh token: {e}")
-                return {"status": "Token refresh failed"}
+        try:
+            from app.strava_utils import get_strava_client
+            client = get_strava_client(user)
+        except Exception as e:
+            print(f"Failed to get valid Strava client for user {telegram_id}: {e}")
+            return {"status": "Token refresh failed"}
 
         try:
             activity = client.get_activity(event.object_id)
