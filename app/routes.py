@@ -79,7 +79,7 @@ async def strava_auth(request: Request, code: str, state: str, background_tasks:
 from pydantic import BaseModel
 from telegram.error import TelegramError
 from app.bot import create_bot_application
-from core.scoring import calculate_weighted_distance
+from core.scoring import calculate_weighted_distance, refresh_activity_weights
 import time
 
 class WebhookEvent(BaseModel):
@@ -146,7 +146,13 @@ async def strava_webhook_event(event: WebhookEvent):
             distance_km = distance_meters / 1000.0
             
             # 3. Calculate Score
-            weighted_km = calculate_weighted_distance(activity_type_str, distance_meters) 
+            weights = await refresh_activity_weights()
+            weighted_km = calculate_weighted_distance(activity_type_str, distance_meters, custom_weights=weights) 
+
+            # Only process allowed types (Ride, Run, Swim)
+            if weighted_km <= 0:
+                print(f"Skipping webhook activity {event.object_id} - type {activity_type_str} is not allowed.")
+                return {"status": "Activity type not allowed"}
 
             activity_data = {
                 "activity_id": event.object_id,

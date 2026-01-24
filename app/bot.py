@@ -3,6 +3,7 @@ from telegram.ext import ApplicationBuilder, Application, CommandHandler, Contex
 from core.config import settings
 from stravalib.client import Client
 from db.supabase import supabase
+from app.sync import sync_for_user, sync_all_users
 
 
 async def check_phone_allowed(phone_number: str) -> bool:
@@ -120,7 +121,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Use /name [First] [Last] to set your display name.\n"
         "Use /stats to see your total weighted distance.\n"
         "Use /activities to list your recent activities.\n"
-        "Use /top to see the leaderboard, i.e. the top 3 performers."
+        "Use /top to see the leaderboard, i.e. the top 3 performers.\n"
+        "Use /weights to see current conversion factors."
     )
 
 async def name_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -171,6 +173,8 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    await sync_for_user(user_id)
     try:
         response = supabase.table("activities").select("weighted_distance").eq("user_id", user_id).execute()
         total = sum(item["weighted_distance"] for item in response.data)
@@ -182,6 +186,9 @@ async def top_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_user_verified(update):
         await request_verification(update)
         return
+
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    await sync_all_users()
 
     try:
         response = supabase.table("activities").select("user_id, weighted_distance").execute()
@@ -227,6 +234,8 @@ async def activities_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     user_id = update.effective_user.id
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    await sync_for_user(user_id)
     try:
         count_response = supabase.table("activities").select("activity_id", count="exact").eq("user_id", user_id).execute()
         total_count = count_response.count
@@ -255,6 +264,22 @@ async def activities_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     except Exception as e:
         await update.message.reply_text(f"Error fetching activities: {e}")
 
+async def weights_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Shows the current activity weights/conversion factors."""
+    from core.scoring import refresh_activity_weights
+    
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    weights = await refresh_activity_weights()
+    
+    msg = "⚖️ Activity Conversion Factors:\n(Distance * Weight = Score)\n\n"
+    # Filter out 0.0 weights
+    active_weights = {k: v for k, v in weights.items() if v > 0}
+    
+    for sport, weight in sorted(active_weights.items()):
+        msg += f"• {sport}: {weight:.2f}x\n"
+    
+    await update.message.reply_text(msg)
+
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for member in update.message.new_chat_members:
         if member.id == context.bot.id:
@@ -275,6 +300,7 @@ def create_bot_application() -> Application:
     app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("top", top_command))
     app.add_handler(CommandHandler("activities", activities_command))
+    app.add_handler(CommandHandler("weights", weights_command))
     app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
     
