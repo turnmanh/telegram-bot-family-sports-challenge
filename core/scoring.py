@@ -5,8 +5,10 @@ from typing import Dict, Optional
 # Run is the baseline (1.0)
 DEFAULT_ACTIVITY_WEIGHTS = {
     "Run": Decimal("1.0"),
-    "Ride": Decimal("0.25"),
+    "Ride": Decimal("0.1"),
     "Swim": Decimal("4.0"),
+    "VirtualRun": Decimal("1.0"),
+    "VirtualRide": Decimal("0.1"),
 }
 
 def calculate_weighted_distance(

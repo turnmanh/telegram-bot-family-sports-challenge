@@ -28,3 +28,10 @@ create table allowed_numbers (
   name text,
   created_at timestamp with time zone default now()
 );
+
+-- Activity weights table for scoring calculations
+create table activity_weights (
+  sport_type text primary key,
+  weight decimal not null,
+  icon text
+);

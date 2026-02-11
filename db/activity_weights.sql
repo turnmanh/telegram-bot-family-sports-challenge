@@ -4,7 +4,9 @@ TRUNCATE activity_weights;
 -- 2. Insert ONLY allowed types
 INSERT INTO activity_weights (sport_type, weight, icon)
 VALUES ('Run', 1.0, '🏃'),
-    ('Ride', 0.25, '🚴'),
+    ('Ride', 0.1, '🚴'),
+    ('VirtualRun', 1.0, '🏃'),
+    ('VirtualRide', 0.1, '🚴'),
     ('Swim', 4.0, '🏊');
 -- 3. Optionally: Delete existing activities from the DB that are no longer allowed
 -- This ensures that /stats and leaderboard are updated immediately
