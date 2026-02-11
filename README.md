@@ -41,7 +41,7 @@ STRAVA_SYNC_END_DATE=2024-12-31
 To build and run the bot locally:
 
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 To run using the image built by GitHub Actions, update your `docker-compose.yml` to use the image from GHCR:
